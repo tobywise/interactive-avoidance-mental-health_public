@@ -1,5 +1,11 @@
 # Associations between interactive avoidance processes and transdiagnostic mental health symptoms
 
+_Wise, Sookud, Michelini & Mobbs (2023)_
+
+📄 [Preprint]()
+
+----
+
 This repository contains code for our study investigating links between interactive avoidance processes and transdiagnostic mental health symptoms. 
 
 To reproduce the analyses, follow the steps below.
