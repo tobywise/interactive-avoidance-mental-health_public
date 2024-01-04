@@ -23,7 +23,6 @@ def check_directories():
     """
     # Check if the 'notebooks' directory exists
     if not os.path.isdir("notebooks"):
-
         # If we're currently in "notebooks", move one directory up
         if os.path.isdir("../notebooks"):
             print("Changing directory to root directory of repository...")
@@ -44,6 +43,38 @@ def check_directories():
     # Check if the 'figures' directory exists and create it if not
     if not os.path.isdir("figures"):
         os.mkdir("figures")
+
+
+def print_demographics(df: pd.DataFrame) -> None:
+    """
+    Prints demographics information from a dataframe. It includes the number of unique subjects,
+    the mean and standard deviation of the age, and the count of each gender category.
+
+    Args:
+        df (pd.DataFrame): A pandas dataframe containing at least the following columns:
+                           'subjectID' with unique identifiers for subjects,
+                           'age' with age values,
+                           'gender' with gender categories encoded as 0, 1, 2, 3.
+
+    Returns:
+        None: This function prints the results and does not return anything.
+    """
+    # Print number of subjects
+    print("Number of subjects = {}".format(len(df["subjectID"].unique())))
+
+    # Print mean and standard deviation of age
+    print("Mean (SD) age = {:.2f} ({:.2f})".format(df["age"].mean(), df["age"].std()))
+
+    # Print gender counts
+    gender_counts = (
+        df["gender"]
+        .value_counts()
+        .rename({0: "Male", 1: "Female", 2: "Other", 3: "Prefer not to say"})
+    )
+    counts_str = ", ".join(
+        [f"{count} {gender}" for gender, count in gender_counts.items()]
+    )
+    print(f"Gender counts: {counts_str}")
 
 
 def plot_regression(
