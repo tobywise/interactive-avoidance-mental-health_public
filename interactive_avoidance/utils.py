@@ -1,7 +1,7 @@
 import os
 from dataclasses import dataclass
 from datetime import datetime
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Dict
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -45,7 +45,7 @@ def check_directories():
         os.mkdir("figures")
 
 
-def print_demographics(df: pd.DataFrame) -> None:
+def print_demographics(df: pd.DataFrame, gender_mapping:Dict = None) -> None:
     """
     Prints demographics information from a dataframe. It includes the number of unique subjects,
     the mean and standard deviation of the age, and the count of each gender category.
@@ -55,6 +55,8 @@ def print_demographics(df: pd.DataFrame) -> None:
                            'subjectID' with unique identifiers for subjects,
                            'age' with age values,
                            'gender' with gender categories encoded as 0, 1, 2, 3.
+        gender_mapping (Dict, optional): A dictionary mapping numeric values to string
+                                         gender categories.
 
     Returns:
         None: This function prints the results and does not return anything.
@@ -65,11 +67,15 @@ def print_demographics(df: pd.DataFrame) -> None:
     # Print mean and standard deviation of age
     print("Mean (SD) age = {:.2f} ({:.2f})".format(df["age"].mean(), df["age"].std()))
 
+    # Set default mapping if none is provided
+    if gender_mapping is None:
+        gender_mapping = {0: "Male", 1: "Female", 2: "Other", 3: "Prefer not to say"}
+
     # Print gender counts
     gender_counts = (
         df["gender"]
         .value_counts()
-        .rename({0: "Male", 1: "Female", 2: "Other", 3: "Prefer not to say"})
+        .rename(gender_mapping)
     )
     counts_str = ", ".join(
         [f"{count} {gender}" for gender, count in gender_counts.items()]
