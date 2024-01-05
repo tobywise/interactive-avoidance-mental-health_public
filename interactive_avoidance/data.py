@@ -60,8 +60,8 @@ def load_all_data(
     # Drop the 'exp' column from all dataframes
     dfs = [
         rating_df,
-        rt_predator_df,
         rt_prey_df,
+        rt_predator_df,
         confidence_df,
         prediction_df,
         response_df,
@@ -74,11 +74,11 @@ def load_all_data(
         # Get initial number of subjects
         n_subs = len(rating_df["subjectID"].unique())
         # Remove subjects not in questionnaire data
-        dfs = [
-            df[df["subjectID"].isin(subjectIDs)] for df in dfs
-        ]
+        dfs = [df[df["subjectID"].isin(subjectIDs)] for df in dfs]
         # Print number of subjects removed
-        print(f"Removed {n_subs - len(dfs[0]['subjectID'].unique())} subjects not present in questionnaire data.")
+        print(
+            f"Removed {n_subs - len(dfs[0]['subjectID'].unique())} subjects not present in questionnaire data."
+        )
 
     return dfs
 
@@ -142,7 +142,7 @@ def load_environment_data() -> pd.DataFrame:
         "r",
     ) as f:
         game_info = json.load(f)
-    envs['cond1'] = [
+    envs["cond1"] = [
         hex_environment_from_dict(env, ["Dirt", "Trees", "Reward"])
         for env in game_info["environments"]
     ]
