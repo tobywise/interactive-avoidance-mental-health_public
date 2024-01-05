@@ -74,7 +74,9 @@ def load_all_data(
         # Get initial number of subjects
         n_subs = len(rating_df["subjectID"].unique())
         # Remove subjects not in questionnaire data
-        dfs = [df[df["subjectID"].isin(subjectIDs)] for df in dfs]
+        dfs = [
+            df[df["subjectID"].isin(subjectIDs)].reset_index(drop=True) for df in dfs
+        ]
         # Print number of subjects removed
         print(
             f"Removed {n_subs - len(dfs[0]['subjectID'].unique())} subjects not present in questionnaire data."
