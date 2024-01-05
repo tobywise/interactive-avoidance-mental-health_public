@@ -19,6 +19,7 @@ def load_all_data(
     confidence: bool = True,
     prediction: bool = True,
     response: bool = True,
+    questionnaire_data: pd.DataFrame = None,
 ) -> Tuple[
     pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame
 ]:
@@ -32,6 +33,9 @@ def load_all_data(
         confidence (bool, optional): Whether to load confidence data. Defaults to True.
         prediction (bool, optional): Whether to load prediction data. Defaults to True.
         response (bool, optional): Whether to load response data. Defaults to True.
+        questionnaire_data (pd.DataFrame, optional): Dataframe of questionnaire data, used to determine which subject IDs
+                                                     to include. Only subjects present in the subjectID column of this dataframe
+                                                     will be included in the loaded task data. Defaults to None.
 
     Returns:
         Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]: Returns
@@ -39,7 +43,13 @@ def load_all_data(
         prediction_df, response_df. Data types not loaded will be None.
     """
 
-    # Concatenate dataframes, only if data type is True
+    # Get subject IDs to include
+    if questionnaire_data is not None:
+        subjectIDs = questionnaire_data["subjectID"].unique()
+    else:
+        subjectIDs = None
+
+    # Load data
     rating_df = pd.read_csv(f"data/task/rating_data.csv")
     rt_predator_df = pd.read_csv(f"data/task/rt_predator_data.csv")
     rt_prey_df = pd.read_csv(f"data/task/rt_prey_data.csv")
@@ -59,14 +69,18 @@ def load_all_data(
     for df in dfs:
         df.drop(columns=["exp"], inplace=True)
 
-    return (
-        rating_df,
-        rt_prey_df,
-        rt_predator_df,
-        confidence_df,
-        prediction_df,
-        response_df,
-    )
+    # Filter subjectIDs
+    if subjectIDs is not None:
+        # Get initial number of subjects
+        n_subs = len(rating_df["subjectID"].unique())
+        # Remove subjects not in questionnaire data
+        dfs = [
+            df[df["subjectID"].isin(subjectIDs)] for df in dfs
+        ]
+        # Print number of subjects removed
+        print(f"Removed {n_subs - len(dfs[0]['subjectID'].unique())} subjects not present in questionnaire data.")
+
+    return dfs
 
 
 def separate_predator_prey_data(
