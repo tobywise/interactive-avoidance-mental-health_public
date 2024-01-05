@@ -1,7 +1,7 @@
 import os
 from dataclasses import dataclass
 from datetime import datetime
-from typing import List, Tuple, Union, Dict
+from typing import Dict, List, Tuple, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -45,7 +45,7 @@ def check_directories():
         os.mkdir("figures")
 
 
-def print_demographics(df: pd.DataFrame, gender_mapping:Dict = None) -> None:
+def print_demographics(df: pd.DataFrame, gender_mapping: Dict = None) -> None:
     """
     Prints demographics information from a dataframe. It includes the number of unique subjects,
     the mean and standard deviation of the age, and the count of each gender category.
@@ -72,11 +72,7 @@ def print_demographics(df: pd.DataFrame, gender_mapping:Dict = None) -> None:
         gender_mapping = {0: "Male", 1: "Female", 2: "Other", 3: "Prefer not to say"}
 
     # Print gender counts
-    gender_counts = (
-        df["gender"]
-        .value_counts()
-        .rename(gender_mapping)
-    )
+    gender_counts = df["gender"].value_counts().rename(gender_mapping)
     counts_str = ", ".join(
         [f"{count} {gender}" for gender, count in gender_counts.items()]
     )
@@ -136,3 +132,85 @@ def calculate_and_print_correlations(
     # Print results
     print(f"{label} (Pearson): r = {corr_pearson:.2f}, p = {p_pearson:.3f}")
     print(f"{label} (Spearman): rho = {corr_spearman:.2f}, p = {p_spearman:.3f}")
+
+
+def dataframe_to_markdown(df: pd.DataFrame, round_dict: dict, rename_dict: dict) -> str:
+    """
+    Processes a pandas DataFrame by rounding specified columns, renaming columns with LaTeX formatted names,
+    and converting the DataFrame to a markdown table string.
+
+    Args:
+        df (pd.DataFrame): The DataFrame to process.
+        round_dict (dict): A dictionary specifying the number of decimal places for each column to round to.
+                           Example: {"column1": 2, "column2": 3}
+        rename_dict (dict): A dictionary specifying the new column names with LaTeX formatting.
+                            Example: {"column1": "$column_{1}$", "column2": "$column_{2}$"}
+
+    Returns:
+        str: A string representing the DataFrame in markdown format.
+
+    Example:
+        df = pd.DataFrame(...)
+        round_dict = {"df_resid": 0, "ssr": 2, "ss_diff": 2, "F": 2, "Pr(>F)": 3}
+        rename_dict = {"df_resid": "$df_{R}$", "ssr": "$SS_{R}$", "ss_diff": "$SS_{diff}$", "F": "$F$", "Pr(>F)": "$p$"}
+        latex_str = dataframe_to_latex(df, round_dict, rename_dict)
+    """
+    # Round the specified columns
+    df_rounded = df.round(round_dict)
+
+    # Format zero values as '0.00'
+    df_formatted = df_rounded.applymap(lambda x: "0.00" if x == 0 else x)
+
+    # Replace NaN values with '-'
+    df_filled = df_formatted.fillna("-")
+
+    # Rename the columns
+    df_renamed = df_filled.rename(columns=rename_dict)
+
+    # Convert to Markdown string
+    return df_renamed.to_markdown(index=False)
+
+
+def dataframes_to_markdown(
+    dfs: List[pd.DataFrame],
+    captions: List[str],
+    round_dicts: List[dict],
+    rename_dicts: List[dict],
+    filename: str,
+) -> None:
+    """
+    Combines multiple pandas DataFrames into a single Markdown string with separate tables and captions,
+    using the dataframe_to_markdown function for each DataFrame, and exports the result to a Markdown (.md) file.
+
+    Args:
+        dfs (list[pd.DataFrame]): List of pandas DataFrames to be converted.
+        captions (list[str]): List of captions for each table.
+        round_dicts (list[dict]): List of dictionaries for rounding columns for each DataFrame.
+        rename_dicts (list[dict]): List of dictionaries for renaming columns for each DataFrame.
+        filename (str): Name of the output Markdown file (should end in .md).
+
+    Returns:
+        None: This function writes to a file and does not return anything.
+
+    Example:
+        dfs = [df1, df2]
+        captions = ["Caption 1", "Caption 2"]
+        round_dicts = [{"col1": 2}, {"col1": 2}]
+        rename_dicts = [{"col1": "Column 1"}, {"col1": "Column 1"}]
+        dataframes_to_markdown(dfs, titles, captions, round_dicts, rename_dicts, "output.md")
+    """
+    markdown_string = ""
+
+    # Check if lists are of equal length
+    if not all(len(lst) == len(dfs) for lst in [captions, round_dicts, rename_dicts]):
+        raise ValueError("All lists must be of the same length as dfs")
+
+    # Loop through the dataframes
+    for i, df in enumerate(dfs):
+        table_number = i + 1
+        markdown_string += dataframe_to_markdown(df, round_dicts[i], rename_dicts[i])
+        markdown_string += f"\n\n*Table {table_number}. {captions[i]}*\n\n"
+
+    # Write to a markdown file
+    with open(filename, "w") as file:
+        file.write(markdown_string)
