@@ -275,7 +275,6 @@ def dataframes_to_markdown(
     # Loop through the dataframes
     for i, df in enumerate(dfs):
         table_number = start_table_number + i + 1
-        print(dataframe_to_markdown(df, round_dicts[i], rename_dicts[i]))
         markdown_string += dataframe_to_markdown(df, round_dicts[i], rename_dicts[i])
         markdown_string += f"\n\n*Table S{table_number}. {captions[i]}*\n\n"
 
