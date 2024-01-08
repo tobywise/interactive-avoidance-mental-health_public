@@ -170,7 +170,9 @@ def coefficients_to_dataframe(
     return df
 
 
-def dataframe_to_markdown(df: pd.DataFrame, round_dict: dict, rename_dict: dict) -> str:
+def dataframe_to_markdown(
+    df: pd.DataFrame, round_dict: dict, rename_dict: dict, pval_column: str = None
+) -> str:
     """
     Processes a pandas DataFrame by rounding specified columns, renaming columns with LaTeX formatted names,
     and converting the DataFrame to a markdown table string.
@@ -179,8 +181,10 @@ def dataframe_to_markdown(df: pd.DataFrame, round_dict: dict, rename_dict: dict)
         df (pd.DataFrame): The DataFrame to process.
         round_dict (dict): A dictionary specifying the number of decimal places for each column to round to.
                            Example: {"column1": 2, "column2": 3}
-        rename_dict (dict): A dictionary specifying the new column names with LaTeX formatting.
+        rename_dict (dict): A dictionary specifying the new column names with optional LaTeX formatting.
                             Example: {"column1": "$column_{1}$", "column2": "$column_{2}$"}
+        pval_column (str): The name of the column containing p-values. If specified, the column will be
+                            converted to a string and significant values will be bolded. Defaults to None.
 
     Returns:
         str: A string representing the DataFrame in markdown format.
@@ -189,14 +193,43 @@ def dataframe_to_markdown(df: pd.DataFrame, round_dict: dict, rename_dict: dict)
         df = pd.DataFrame(...)
         round_dict = {"df_resid": 0, "ssr": 2, "ss_diff": 2, "F": 2, "Pr(>F)": 3}
         rename_dict = {"df_resid": "$df_{R}$", "ssr": "$SS_{R}$", "ss_diff": "$SS_{diff}$", "F": "$F$", "Pr(>F)": "$p$"}
-        latex_str = dataframe_to_latex(df, round_dict, rename_dict)
+        markdown_str = dataframe_to_latex(df, round_dict, rename_dict, 'p>|t|')
     """
 
     # Create a copy of the DataFrame
     df = df.copy()
 
+    # Reset index just in case it's out of order
+    df = df.reset_index(drop=True)
+
     # Get rounding precision for each column as a tuple in the column order, as a formatting string
     precisions = tuple([f".{round_dict.get(col, 0)}f" for col in df.columns])
+
+    # Apply custom formatting based on round_dict
+    for col, decimals in round_dict.items():
+        # Convert column to numeric if it is not already
+        df[col] = pd.to_numeric(df[col])
+
+        # Identify significant rows
+        if col == pval_column:
+            significant_rows = df[col].values < 0.05
+
+        # Round the column to the specified number of decimal places
+        df[col] = (
+            df[col]
+            .apply(lambda x: f"{x:.{decimals}f}" if pd.notnull(x) else "-")
+            .astype(str)
+        )
+
+        # Bold significant rows
+       
+        if col == pval_column:
+            df[col] = df.apply(
+                lambda row: f"**{row[col]}**"
+                if row[col] != "-" and significant_rows[row.name]
+                else row[col],
+                axis=1,
+            )
 
     # Rename the columns
     df_renamed = df.rename(columns=rename_dict)
@@ -236,6 +269,7 @@ def dataframes_to_markdown(
     captions: List[str],
     round_dicts: List[dict],
     rename_dicts: List[dict],
+    pval_columns: List[str],
     filename: str,
     prepend_string: str = "",
     append: bool = False,
@@ -250,6 +284,7 @@ def dataframes_to_markdown(
         captions (list[str]): List of captions for each table.
         round_dicts (list[dict]): List of dictionaries for rounding columns for each DataFrame.
         rename_dicts (list[dict]): List of dictionaries for renaming columns for each DataFrame.
+        pval_columns (list[str]): List of column names containing p-values for each DataFrame.
         filename (str): Name of the output Markdown file (should end in .md).
         prepend_string (str): String to prepend to the Markdown string.
         append (bool): If True, append to an existing file. If False, overwrite the file.
@@ -275,7 +310,7 @@ def dataframes_to_markdown(
     # Loop through the dataframes
     for i, df in enumerate(dfs):
         table_number = start_table_number + i + 1
-        markdown_string += dataframe_to_markdown(df, round_dicts[i], rename_dicts[i])
+        markdown_string += dataframe_to_markdown(df, round_dicts[i], rename_dicts[i], pval_columns[i])
         markdown_string += f"\n\n*Table S{table_number}. {captions[i]}*\n\n"
 
     # Determine the mode for opening the file
