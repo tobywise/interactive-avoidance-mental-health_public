@@ -131,8 +131,8 @@ def calculate_and_print_correlations(
     corr_spearman, p_spearman = spearmanr(data[x_var], data[y_var])
 
     # Print results
-    print(f"{label} (Pearson): r = {corr_pearson:.2f}, p = {p_pearson:.3f}")
-    print(f"{label} (Spearman): rho = {corr_spearman:.2f}, p = {p_spearman:.3f}")
+    print(f"{label} (Pearson): r ({len(data) - 1}) = {corr_pearson:.2f}, p = {p_pearson:.3f}")
+    print(f"{label} (Spearman): rho ({len(data) - 1}) = {corr_spearman:.2f}, p = {p_spearman:.3f}")
 
 
 def coefficients_to_dataframe(
@@ -170,8 +170,42 @@ def coefficients_to_dataframe(
     return df
 
 
+import pandas as pd
+
+
+def format_column_repeated_values(df: pd.DataFrame, col_name: str) -> pd.DataFrame:
+    """
+    Returns a new DataFrame where only the first occurrence of a repeated value in the given column is shown,
+    and subsequent ones are left blank.
+
+    Args:
+        df (pd.DataFrame): Original DataFrame.
+        col_name (str): Name of the column to format.
+
+    Returns:
+        pd.DataFrame: New DataFrame with formatted first column.
+    """
+    # Create a copy of the DataFrame to avoid modifying the original
+    formatted_df = df.copy()
+
+    prev_value = None
+    for index, value in formatted_df[col_name].items():
+        if value == prev_value:
+            formatted_df.at[
+                index, col_name
+            ] = ""  # Replace repeated values with empty string
+        else:
+            prev_value = value
+
+    return formatted_df
+
+
 def dataframe_to_markdown(
-    df: pd.DataFrame, round_dict: dict, rename_dict: dict, pval_column: str = None
+    df: pd.DataFrame,
+    round_dict: dict,
+    rename_dict: dict,
+    pval_column: str = None,
+    repeated_value_columns: List[str] = None,
 ) -> str:
     """
     Processes a pandas DataFrame by rounding specified columns, renaming columns with LaTeX formatted names,
@@ -222,7 +256,6 @@ def dataframe_to_markdown(
         )
 
         # Bold significant rows
-       
         if col == pval_column:
             df[col] = df.apply(
                 lambda row: f"**{row[col]}**"
@@ -230,6 +263,10 @@ def dataframe_to_markdown(
                 else row[col],
                 axis=1,
             )
+
+    # Format columns with repeated values
+    for col in repeated_value_columns:
+        df = format_column_repeated_values(df, col)
 
     # Rename the columns
     df_renamed = df.rename(columns=rename_dict)
@@ -273,6 +310,7 @@ def dataframes_to_markdown(
     filename: str,
     prepend_string: str = "",
     append: bool = False,
+    repeated_value_columns: List[List[str]] = None,
 ) -> None:
     """
     Combines multiple pandas DataFrames into a single Markdown string with separate tables and captions,
@@ -288,6 +326,8 @@ def dataframes_to_markdown(
         filename (str): Name of the output Markdown file (should end in .md).
         prepend_string (str): String to prepend to the Markdown string.
         append (bool): If True, append to an existing file. If False, overwrite the file.
+        repeated_value_columns (list[list[str]]): List of lists of column names containing repeated values
+                                                  for each DataFrame.
 
     Returns:
         None: This function writes to a file and does not return anything.
@@ -310,7 +350,13 @@ def dataframes_to_markdown(
     # Loop through the dataframes
     for i, df in enumerate(dfs):
         table_number = start_table_number + i + 1
-        markdown_string += dataframe_to_markdown(df, round_dicts[i], rename_dicts[i], pval_columns[i])
+        markdown_string += dataframe_to_markdown(
+            df,
+            round_dicts[i],
+            rename_dicts[i],
+            pval_columns[i],
+            repeated_value_columns[i] if repeated_value_columns else [],
+        )
         markdown_string += f"\n\n*Table S{table_number}. {captions[i]}*\n\n"
 
     # Determine the mode for opening the file
