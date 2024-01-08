@@ -11,6 +11,7 @@ import statsmodels.formula.api as smf
 from matplotlib.collections import LineCollection
 from matplotlib.colors import LinearSegmentedColormap
 from scipy.stats import pearsonr, spearmanr, t
+from stats_utils.regression.analysis import ModelOutput
 from statsmodels.regression.linear_model import RegressionResultsWrapper
 from statsmodels.stats.anova import anova_lm
 from tqdm import tqdm
@@ -134,6 +135,41 @@ def calculate_and_print_correlations(
     print(f"{label} (Spearman): rho = {corr_spearman:.2f}, p = {p_spearman:.3f}")
 
 
+def coefficients_to_dataframe(
+    model_output: ModelOutput, model_index: int = -1, rename_dict: dict = None
+) -> pd.DataFrame:
+    """
+    Converts a statsmodels OLS model coefficients table from a ModelOutput summary into a pandas DataFrame.
+
+    Args:
+        model_output (ModelOutput): The ModelOutput object whose summary is to be converted.
+        model_index (int, optional): Index of the model in the summary to convert. Defaults to -1.
+        rename_dict (dict, optional): Dictionary mapping original variable names to new names. Defaults to None.
+
+    Returns:
+        pd.DataFrame: A pandas DataFrame representation of the specified summary table.
+    """
+    # Get the model summary
+    summary = model_output.models[model_index].summary()
+
+    # Extract the specified table (SimpleTable object) from the summary
+    table = summary.tables[1]
+
+    # Extracting the data from the SimpleTable and converting it to a DataFrame
+    data = table.data
+    headers = data[0]
+    rows = data[1:]
+
+    # Converto to DataFrame
+    df = pd.DataFrame(rows, columns=headers)
+
+    # Rename row names in index based on rename_dict
+    if rename_dict is not None:
+        df = df.replace(rename_dict)
+
+    return df
+
+
 def dataframe_to_markdown(df: pd.DataFrame, round_dict: dict, rename_dict: dict) -> str:
     """
     Processes a pandas DataFrame by rounding specified columns, renaming columns with LaTeX formatted names,
@@ -155,20 +191,44 @@ def dataframe_to_markdown(df: pd.DataFrame, round_dict: dict, rename_dict: dict)
         rename_dict = {"df_resid": "$df_{R}$", "ssr": "$SS_{R}$", "ss_diff": "$SS_{diff}$", "F": "$F$", "Pr(>F)": "$p$"}
         latex_str = dataframe_to_latex(df, round_dict, rename_dict)
     """
-    # Round the specified columns
-    df_rounded = df.round(round_dict)
 
-    # Format zero values as '0.00'
-    df_formatted = df_rounded.applymap(lambda x: "0.00" if x == 0 else x)
+    # Create a copy of the DataFrame
+    df = df.copy()
 
-    # Replace NaN values with '-'
-    df_filled = df_formatted.fillna("-")
+    # Get rounding precision for each column as a tuple in the column order, as a formatting string
+    precisions = tuple([f".{round_dict.get(col, 0)}f" for col in df.columns])
 
     # Rename the columns
-    df_renamed = df_filled.rename(columns=rename_dict)
+    df_renamed = df.rename(columns=rename_dict)
 
     # Convert to Markdown string
-    return df_renamed.to_markdown(index=False)
+    return df_renamed.to_markdown(index=False, floatfmt=precisions)
+
+
+def get_last_table_number(filename: str) -> int:
+    """
+    Reads a markdown file and returns the last table number found.
+
+    Args:
+        filename (str): The name of the markdown file.
+
+    Returns:
+        int: The last table number or 0 if no tables are found.
+    """
+    if not os.path.exists(filename):
+        return 0
+
+    last_table_number = 0
+    with open(filename, "r") as file:
+        for line in file:
+            if line.startswith("*Table S"):
+                try:
+                    # Extract table number
+                    table_number = int(line.split(".")[0].split("S")[-1].strip())
+                    last_table_number = max(last_table_number, table_number)
+                except ValueError:
+                    continue
+    return last_table_number
 
 
 def dataframes_to_markdown(
@@ -177,10 +237,13 @@ def dataframes_to_markdown(
     round_dicts: List[dict],
     rename_dicts: List[dict],
     filename: str,
+    prepend_string: str = "",
+    append: bool = False,
 ) -> None:
     """
     Combines multiple pandas DataFrames into a single Markdown string with separate tables and captions,
-    using the dataframe_to_markdown function for each DataFrame, and exports the result to a Markdown (.md) file.
+    using the dataframe_to_markdown function for each DataFrame, and exports or appends the result
+    to a Markdown (.md) file.
 
     Args:
         dfs (list[pd.DataFrame]): List of pandas DataFrames to be converted.
@@ -188,29 +251,43 @@ def dataframes_to_markdown(
         round_dicts (list[dict]): List of dictionaries for rounding columns for each DataFrame.
         rename_dicts (list[dict]): List of dictionaries for renaming columns for each DataFrame.
         filename (str): Name of the output Markdown file (should end in .md).
+        prepend_string (str): String to prepend to the Markdown string.
+        append (bool): If True, append to an existing file. If False, overwrite the file.
 
     Returns:
         None: This function writes to a file and does not return anything.
-
-    Example:
-        dfs = [df1, df2]
-        captions = ["Caption 1", "Caption 2"]
-        round_dicts = [{"col1": 2}, {"col1": 2}]
-        rename_dicts = [{"col1": "Column 1"}, {"col1": "Column 1"}]
-        dataframes_to_markdown(dfs, titles, captions, round_dicts, rename_dicts, "output.md")
     """
+
+    # Create an empty string to store the Markdown
     markdown_string = ""
+
+    # Prepend the string if provided
+    if prepend_string != "":
+        markdown_string += prepend_string + "\n\n"
 
     # Check if lists are of equal length
     if not all(len(lst) == len(dfs) for lst in [captions, round_dicts, rename_dicts]):
         raise ValueError("All lists must be of the same length as dfs")
 
+    # Get the last table number if appending
+    start_table_number = get_last_table_number(filename) if append else 0
+
     # Loop through the dataframes
     for i, df in enumerate(dfs):
-        table_number = i + 1
+        table_number = start_table_number + i + 1
+        print(dataframe_to_markdown(df, round_dicts[i], rename_dicts[i]))
         markdown_string += dataframe_to_markdown(df, round_dicts[i], rename_dicts[i])
-        markdown_string += f"\n\n*Table {table_number}. {captions[i]}*\n\n"
+        markdown_string += f"\n\n*Table S{table_number}. {captions[i]}*\n\n"
 
-    # Write to a markdown file
-    with open(filename, "w") as file:
+    # Determine the mode for opening the file
+    file_mode = "a" if append and os.path.exists(filename) else "w"
+
+    # Inform the user about the file operation
+    if file_mode == "a":
+        print(f"Appending to existing file: {filename}")
+    else:
+        print(f"Creating or overwriting file: {filename}")
+
+    # Write or append to the markdown file
+    with open(filename, file_mode) as file:
         file.write(markdown_string)
