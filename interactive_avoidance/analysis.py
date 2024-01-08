@@ -31,9 +31,12 @@ def run_exploratory_models(
     output_df = {
         "parameter": [],
         "measure": [],
+        "coef": [],
+        "coef_se": [],
         "t": [],
-        "df": [],
         "p": [],
+        "ci_lower": [],
+        "ci_upper": [],
     }
 
     # Loop over parameters
@@ -64,9 +67,12 @@ def run_exploratory_models(
             # Add to output dataframe
             output_df["parameter"].append(p)
             output_df["measure"].append(v)
+            output_df['coef'].append(fitted_model.params[v])
+            output_df['coef_se'].append(fitted_model.bse[v])
             output_df["t"].append(fitted_model.tvalues[v])
-            output_df["df"].append(fitted_model.df_resid)
             output_df["p"].append(fitted_model.pvalues_bootstrap[v])
+            output_df["ci_lower"].append(fitted_model.conf_int_bootstrap().loc[v, 0])
+            output_df["ci_upper"].append(fitted_model.conf_int_bootstrap().loc[v, 1])
 
     output_df = pd.DataFrame(output_df)
 
