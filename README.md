@@ -2,7 +2,7 @@
 
 _Wise, Sookud, Michelini & Mobbs (2023)_
 
-📄 [Preprint]()
+📄 [Preprint](https://osf.io/preprints/psyarxiv/f49gr)
 
 ----
 
