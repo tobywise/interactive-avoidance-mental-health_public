@@ -1,4 +1,4 @@
-# Associations between interactive avoidance processes and transdiagnostic mental health symptoms
+# Transdiagnostic mental health symptom dimensions predict use of flexible model-based inference in complex environments
 
 _Wise, Sookud, Michelini & Mobbs (2023)_
 
